@@ -479,6 +479,10 @@ img { max-width: 100%; }
 }
 .easel:last-child { margin-bottom: 0; }
 
+/* the closing copyright/legal easel is a footnote, not content — keep it small */
+.easel--legal { width: min(400px, 70vw); }
+.easel--legal .easel__board { padding: 16px 18px 18px; }
+
 /* legs + crossbar sit behind the board */
 .easel__stand {
   position: absolute;
@@ -780,6 +784,9 @@ img { max-width: 100%; }
   .easel__board { padding: 20px 20px 22px; font-size: 14px; }
   .easel__board h2 { font-size: 10px; letter-spacing: 0.02em; }
   .easel__icon { width: 36px; height: 36px; }
+  .easel--legal { width: min(230px, 58vw); padding-bottom: 72px; margin-bottom: 84px; }
+  .easel--legal .easel__board { padding: 12px 14px 14px; }
+  .easel--legal .legal { font-size: 11px; line-height: 1.5; }
   .doc-frame { width: min(600px, calc(100vw - 56px)); }
   .topbar { position: relative; letter-spacing: 0.08em; font-size: 13px; }
   .nav-toggle { display: flex; }
