@@ -397,7 +397,7 @@ img { max-width: 100%; }
    Everything else on these pages — every clause, every list — lives on
    a wooden easel like the rest of the site. ---- */
 .doc-frame {
-  width: min(600px, 90vw);
+  width: min(460px, 90vw);
   margin: 0 auto 64px;
   padding: 34px 32px 30px;
   text-align: center;
@@ -491,14 +491,14 @@ img { max-width: 100%; }
    -------------------------------------------------------------------- */
 .easel {
   position: relative;
-  width: min(560px, 92vw);
+  width: min(440px, 92vw);
   margin: 0 auto 132px;
   padding-bottom: 118px;          /* leg room */
 }
 .easel:last-child { margin-bottom: 0; }
 
 /* the closing copyright/legal easel is a footnote, not content — keep it small */
-.easel--legal { width: min(400px, 70vw); }
+.easel--legal { width: min(320px, 70vw); }
 .easel--legal .easel__board { padding: 16px 18px 18px; }
 
 /* legs + crossbar sit behind the board */
