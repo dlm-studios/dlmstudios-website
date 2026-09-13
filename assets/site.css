@@ -70,6 +70,24 @@ img { max-width: 100%; }
   70%      { opacity: 0.5; }
 }
 
+/* Pixel solar system backdrop (Privacy/Terms/404) — sits where .stars
+   would on other pages: a fixed, full-viewport layer behind the page. */
+.solar-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: #04050a;
+}
+.solar-bg canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
 /* a faint drifting sparkle layer that sits IN FRONT of the globe/content */
 .stars-front {
   position: fixed;

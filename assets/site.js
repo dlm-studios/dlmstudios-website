@@ -563,6 +563,271 @@
     });
   }
 
+  /* =====================================================================
+     Pixel solar system backdrop (Privacy/Terms/404) — ported from the
+     "Pixel Solar System Background" Design canvas prototype: a pixel sun
+     orbited by 8 procedural planets and a scatter of retro-tech trinkets.
+     Uses its own seeded noise (ssH3/ssVn3/ssFbm) since the Earth's h3/vn3/fbm
+     above are fixed to one seed; reuses BAY4 + dq for the same dither look.
+     ===================================================================== */
+  function ssH3(x, y, z, seed) {
+    var n = x * 374761393 + y * 668265263 + z * 1442695040 + (seed || 7) * 2654435761;
+    n = (n ^ (n >>> 13)) >>> 0;
+    n = Math.imul(n, 1274126177) >>> 0;
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  }
+  function ssVn3(x, y, z, seed) {
+    var xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+    var xf = x - xi, yf = y - yi, zf = z - zi;
+    var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+    function c(a, b, cc) { return ssH3(xi + a, yi + b, zi + cc, seed); }
+    var x00 = c(0,0,0) + (c(1,0,0) - c(0,0,0)) * u, x10 = c(0,1,0) + (c(1,1,0) - c(0,1,0)) * u;
+    var x01 = c(0,0,1) + (c(1,0,1) - c(0,0,1)) * u, x11 = c(0,1,1) + (c(1,1,1) - c(0,1,1)) * u;
+    var y0 = x00 + (x10 - x00) * v, y1 = x01 + (x11 - x01) * v;
+    return y0 + (y1 - y0) * w;
+  }
+  function ssFbm(x, y, z, oct, seed) {
+    var a = 0.5, f = 1, s = 0, n = 0;
+    for (var i = 0; i < oct; i++) { s += a * ssVn3(x * f, y * f, z * f, seed); n += a; a *= 0.5; f *= 2.08; }
+    return s / n;
+  }
+
+  function paintPlanet(ctx, cx, cy, R, opt, rot) {
+    var Lx = 0.6, Ly = 0.32, Lz = 0.73;
+    for (var py = Math.floor(cy - R); py < Math.ceil(cy + R); py++) {
+      for (var px = Math.floor(cx - R); px < Math.ceil(cx + R); px++) {
+        var nx = (px + 0.5 - cx) / R, ny = (py + 0.5 - cy) / R, d2 = nx * nx + ny * ny;
+        var b = BAY4[(py & 3) * 4 + (px & 3)] / 16;
+        if (d2 > 1) continue;
+        var z = Math.sqrt(1 - d2);
+        var lat = Math.asin(Math.max(-1, Math.min(1, -ny)));
+        var lon = Math.atan2(nx, z) + rot;
+        var sx = Math.cos(lat) * Math.cos(lon), sy = Math.sin(lat), sz = Math.cos(lat) * Math.sin(lon);
+        var r, g, bl;
+        if (opt.type === "ringed" || opt.type === "gas") {
+          var bandv = Math.sin(lat * opt.bands + ssFbm(sx * 2, sy * 2, sz * 2, 3, opt.seed) * 1.6) * 0.5 + 0.5;
+          r = opt.c1[0] + (opt.c2[0] - opt.c1[0]) * bandv;
+          g = opt.c1[1] + (opt.c2[1] - opt.c1[1]) * bandv;
+          bl = opt.c1[2] + (opt.c2[2] - opt.c1[2]) * bandv;
+          var turb = ssFbm(sx * 7, sy * 7, sz * 7, 4, opt.seed) - 0.5;
+          r += turb * 18; g += turb * 16; bl += turb * 14;
+        } else if (opt.type === "rock") {
+          var d = ssFbm(sx * 10, sy * 10, sz * 10, 5, opt.seed);
+          var cr = ssFbm(sx * 26, sy * 26, sz * 26, 4, opt.seed + 3);
+          r = opt.c1[0] + d * 40 - (cr > 0.75 ? 24 : 0);
+          g = opt.c1[1] + d * 36 - (cr > 0.75 ? 24 : 0);
+          bl = opt.c1[2] + d * 34 - (cr > 0.75 ? 24 : 0);
+        } else {
+          var land = ssFbm(sx * 2.6 + 4, sy * 2.6, sz * 2.6, 4, opt.seed);
+          var detail = ssFbm(sx * 9, sy * 9, sz * 9, 4, opt.seed);
+          if (land > 0.52) { r = 60 + detail * 50; g = 110 + detail * 50; bl = 54 + detail * 24; }
+          else { r = 14 + detail * 16; g = 48 + detail * 40; bl = 126 + detail * 60; }
+        }
+        var li = nx * Lx + (-ny) * Ly + z * Lz;
+        li = Math.max(0, Math.min(1, (li + 0.15) / 0.45));
+        li = li * li * (3 - 2 * li);
+        var lum = 0.1 + li * 1.0;
+        r *= lum; g *= lum; bl *= lum * (1 + (1 - li) * 0.3);
+        var rim = Math.pow(d2, 6);
+        r += rim * opt.rim[0]; g += rim * opt.rim[1]; bl += rim * opt.rim[2];
+        ctx.fillStyle = "rgb(" + dq(r, b) + "," + dq(g, b) + "," + dq(bl, b) + ")";
+        ctx.fillRect(px, py, 1, 1);
+      }
+    }
+    if (opt.ring) {
+      ctx.strokeStyle = opt.ring;
+      ctx.lineWidth = Math.max(1, R * 0.1);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, R * 1.7, R * 0.42, -0.25, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  function drawSprite(ctx, cx, cy, scale, rows, palette) {
+    var h = rows.length, w = rows[0].length;
+    var ox = Math.round(cx - (w * scale) / 2), oy = Math.round(cy - (h * scale) / 2);
+    for (var ry = 0; ry < h; ry++) {
+      for (var rx = 0; rx < w; rx++) {
+        var ch = rows[ry][rx];
+        if (ch === ".") continue;
+        ctx.fillStyle = palette[ch] || "#000";
+        ctx.fillRect(ox + rx * scale, oy + ry * scale, scale, scale);
+      }
+    }
+  }
+
+  /* retro-tech trinkets drifting among the planets — pixel-art rows + palettes */
+  var SS_MONITOR_ROWS = [
+    "..KKKKKKKKKKKK..", ".KHHHHHHHHHHHK..", "KHHHHHHHHHHHHHK.", "KH0000000000HK..",
+    "KH0111111110HK..", "KH0122222210HK..", "KH0122222210HK..", "KH0111111110HK..",
+    "KH0000000000HK..", "KHHHHHHHHHHHHHK.", ".KKKKKKKKKKKKK..", "...KDDDDDDK.....",
+    "..KDDDDDDDDK....", ".KDDDDDDDDDDK...", ".KKKKKKKKKKKKK.."
+  ];
+  var SS_MONITOR_PAL = { K: "#1c2230", H: "#c9d0dc", 0: "#0b0d18", 1: "#153020", 2: "#3fdc7a", D: "#aab2c4" };
+
+  var SS_MOUSE_ROWS = [
+    "....CC..", "...CC...", "..CC....", ".C......", "..HHHH..",
+    ".HWHWHH.", ".HWWWHH.", ".HHHHHH.", ".HHHHHH.", "..HHHH.."
+  ];
+  var SS_MOUSE_PAL = { H: "#d8d2c0", W: "#efece2", C: "#8a8470" };
+
+  var SS_PEN_ROWS = [
+    ".......EE", "......EYE", ".....YYY.", "....YYY..", "...YYY...",
+    "..YYY....", ".YYY.....", "GYY......", "TG......."
+  ];
+  var SS_PEN_PAL = { E: "#ff9ecf", Y: "#ffd75e", G: "#8a6a3c", T: "#2a2a2a" };
+
+  var SS_FLOPPY_ROWS = [
+    "NNNNNNNNNNNN", "NNNNNNNNSSSN", "NWWWWWWWSSSN", "NWLLLLLWSSSN", "NWLLLLLW...N",
+    "NWWWWWWW...N", "N..........N", "N.LLLLLLLL.N", "N.LLLLLLLL.N", "N.LLLLLLLL.N", "NNNNNNNNNNNN"
+  ];
+  var SS_FLOPPY_PAL = { N: "#20356b", S: "#c7ccd6", W: "#eef1f6", L: "#9fb0d6" };
+
+  var SS_TRASH_ROWS = [
+    "..HHHHHHHH..", ".HHHHHHHHHH.", "..RRRRRRRR..", "..GDGDGDGD..", "..GDGDGDGD..",
+    "..GDGDGDGD..", "..GDGDGDGD..", "..GDGDGDGD..", "...GGGGGG..."
+  ];
+  var SS_TRASH_PAL = { H: "#dfe3ec", R: "#aab2c4", G: "#c3c9d6", D: "#7d879c" };
+
+  var SS_MAG_ROWS = [
+    "..RRRR..", ".RWWWWR.", "RWWWWWWR", "RWGWWWWR", "RWWWWWWR",
+    ".RWWWWR.", "..RRRR..", "...HH...", "....HH..", ".....HH."
+  ];
+  var SS_MAG_PAL = { R: "#3a3a3a", W: "#eaf2ff", G: "#ffffff", H: "#1a1a1a" };
+
+  var SS_DINO_ROWS = [
+    "...DDD..", "...DDDD.", "...DDDD.", "..DDDDD.", ".DDDDDDD",
+    "DDDDDDD.", "DD.DDD..", "D..DDD..", "....DD.."
+  ];
+  var SS_DINO_PAL = { D: "#c9d4ea" };
+
+  var SS_CURSOR_ROWS = [
+    "K.......", "KK......", "KWK.....", "KWWK....", "KWWWK...", "KWWWWK..",
+    "KWWWWWK.", "KWWWWWWK", "KWWKKKK.", "KWKK....", "KK......", "K......."
+  ];
+  var SS_CURSOR_PAL = { K: "#0b0d18", W: "#f4f7fc" };
+
+  function drawSolarStars(cv) {
+    if (!cv || !cv.parentElement) return;
+    var rect = cv.parentElement.getBoundingClientRect();
+    var S = 3;
+    var W = Math.max(2, Math.round(rect.width / S)), H = Math.max(2, Math.round(rect.height / S));
+    cv.width = W; cv.height = H;
+    var ctx = cv.getContext("2d");
+    ctx.fillStyle = "#04050a"; ctx.fillRect(0, 0, W, H);
+    var n = Math.round(W * H / 190);
+    for (var k = 0; k < n; k++) {
+      var x = Math.floor(ssH3(k, 1, 7) * W), y = Math.floor(ssH3(k, 2, 7) * H);
+      var t = ssH3(k, 3, 7);
+      ctx.fillStyle = t > 0.9 ? "#ffd6e8" : t > 0.78 ? "#cfe0ff" : "#ffffff";
+      ctx.globalAlpha = 0.35 + t * 0.65;
+      ctx.fillRect(x, y, 1, 1);
+      if (t > 0.955) {
+        ctx.fillRect(x - 1, y, 1, 1); ctx.fillRect(x + 1, y, 1, 1);
+        ctx.fillRect(x, y - 1, 1, 1); ctx.fillRect(x, y + 1, 1, 1);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawSolarScene(cv, t) {
+    if (!cv || !cv.parentElement) return;
+    var rect = cv.parentElement.getBoundingClientRect();
+    var S = 3;
+    var W = Math.max(2, Math.round(rect.width / S)), H = Math.max(2, Math.round(rect.height / S));
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    var ctx = cv.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
+    var gx = W * -0.06, gy = H * 0.5;
+
+    var sunR = Math.max(10, H * 0.14);
+    for (var py = Math.floor(gy - sunR * 1.6); py < Math.ceil(gy + sunR * 1.6); py++) {
+      for (var px = Math.floor(gx - sunR * 1.6); px < Math.ceil(gx + sunR * 1.6); px++) {
+        var d = Math.hypot(px - gx, py - gy) / sunR;
+        if (d > 1.6) continue;
+        var r, g, b, a = 1;
+        if (d <= 1) {
+          var n = ssFbm(px * 0.14, py * 0.14, t * 0.00006, 4, 3);
+          r = 255; g = 190 + n * 40; b = 90 + n * 40;
+        } else {
+          a = Math.exp(-(d - 1) * 3.2);
+          r = 255; g = 170; b = 90;
+        }
+        ctx.globalAlpha = a;
+        ctx.fillStyle = "rgb(" + (r | 0) + "," + (g | 0) + "," + (b | 0) + ")";
+        ctx.fillRect(px, py, 1, 1);
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    var planets = [
+      { R: sunR*0.16, dist: sunR*2.3,  opt:{type:"rock", c1:[150,120,110], rim:[70,50,40], seed:1}, speed:0.00034 },
+      { R: sunR*0.22, dist: sunR*3.1,  opt:{type:"ocean", rim:[60,110,220], seed:2}, speed:0.00024 },
+      { R: sunR*0.24, dist: sunR*4.0,  opt:{type:"ocean", rim:[70,120,230], seed:5}, speed:0.00019 },
+      { R: sunR*0.17, dist: sunR*4.9,  opt:{type:"rock", c1:[190,110,80], rim:[120,60,40], seed:4}, speed:0.00015 },
+      { R: sunR*0.42, dist: sunR*6.2,  opt:{type:"gas", bands:9, c1:[210,170,120], c2:[150,110,80], rim:[120,90,60], seed:6}, speed:0.00009 },
+      { R: sunR*0.36, dist: sunR*7.6,  opt:{type:"ringed", bands:7, c1:[230,210,170], c2:[190,160,120], rim:[160,140,100], ring:"rgba(220,200,160,0.5)", seed:7}, speed:0.00007 },
+      { R: sunR*0.28, dist: sunR*9.0,  opt:{type:"gas", bands:6, c1:[150,210,220], c2:[110,170,200], rim:[110,180,230], seed:8}, speed:0.00005 },
+      { R: sunR*0.27, dist: sunR*10.3, opt:{type:"gas", bands:6, c1:[90,110,220], c2:[60,80,190], rim:[90,110,230], seed:9}, speed:0.00004 }
+    ];
+    var trinkets = [
+      { dist: sunR*2.7,  speed:0.00029, seed:11, scale: Math.max(1, sunR*0.034), rows: SS_MONITOR_ROWS, palette: SS_MONITOR_PAL },
+      { dist: sunR*4.55, speed:0.00017, seed:44, scale: Math.max(1, sunR*0.032), rows: SS_FLOPPY_ROWS,  palette: SS_FLOPPY_PAL },
+      { dist: sunR*5.5,  speed:0.00013, seed:22, scale: Math.max(1, sunR*0.038), rows: SS_MOUSE_ROWS,   palette: SS_MOUSE_PAL },
+      { dist: sunR*6.9,  speed:0.00010, seed:55, scale: Math.max(1, sunR*0.034), rows: SS_TRASH_ROWS,   palette: SS_TRASH_PAL },
+      { dist: sunR*7.6,  speed:0.00008, seed:66, scale: Math.max(1, sunR*0.036), rows: SS_MAG_ROWS,     palette: SS_MAG_PAL },
+      { dist: sunR*8.4,  speed:0.00006, seed:33, scale: Math.max(1, sunR*0.04),  rows: SS_PEN_ROWS,     palette: SS_PEN_PAL },
+      { dist: sunR*9.6,  speed:0.00005, seed:77, scale: Math.max(1, sunR*0.04),  rows: SS_DINO_ROWS,    palette: SS_DINO_PAL },
+      { dist: sunR*10.9, speed:0.00004, seed:88, scale: Math.max(1, sunR*0.036), rows: SS_CURSOR_ROWS,  palette: SS_CURSOR_PAL }
+    ];
+
+    var i, o, ang;
+    var orbits = planets.concat(trinkets);
+    ctx.strokeStyle = "rgba(140,160,210,0.14)";
+    for (i = 0; i < orbits.length; i++) {
+      ctx.beginPath();
+      ctx.arc(gx, gy, orbits[i].dist, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    for (i = 0; i < planets.length; i++) {
+      o = planets[i];
+      ang = t * o.speed + o.opt.seed * 1.7;
+      px = gx + Math.cos(ang) * o.dist;
+      py = gy + Math.sin(ang) * o.dist * 0.42;
+      paintPlanet(ctx, px, py, o.R, o.opt, t * 0.00006 + o.opt.seed);
+    }
+    for (i = 0; i < trinkets.length; i++) {
+      o = trinkets[i];
+      ang = t * o.speed + o.seed * 1.7;
+      px = gx + Math.cos(ang) * o.dist;
+      py = gy + Math.sin(ang) * o.dist * 0.42;
+      drawSprite(ctx, px, py, o.scale, o.rows, o.palette);
+    }
+  }
+
+  function buildSolarBackground() {
+    var starCv = document.querySelector(".solar-bg__stars");
+    var sceneCv = document.querySelector(".solar-bg__scene");
+    if (!starCv || !sceneCv) return;
+
+    drawSolarStars(starCv);
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(function () { drawSolarStars(starCv); });
+      ro.observe(starCv.parentElement);
+    }
+
+    if (reduceMotion) { drawSolarScene(sceneCv, 9000); return; }
+
+    var last = 0;
+    function loop(now) {
+      requestAnimationFrame(loop);
+      if (now - last < 62) return;
+      last = now;
+      try { drawSolarScene(sceneCv, now); } catch (e) {}
+    }
+    requestAnimationFrame(loop);
+  }
+
   function init() {
     buildGlobe();
     makeStars();
@@ -570,6 +835,7 @@
     bindReveal();
     bootHero();
     bindNavToggle();
+    buildSolarBackground();
   }
 
   if (document.readyState === "loading") {
