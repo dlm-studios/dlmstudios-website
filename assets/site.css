@@ -1,0 +1,772 @@
+/* =====================================================================
+   DLM Studios — pixel-space theme
+   Shared by index.html and products.html
+   ===================================================================== */
+
+*,
+*::before,
+*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --space:     #000000;   /* solid black — the whole background */
+  --star:      #dce8ff;
+  --welcome:   #a9dcff;   /* light blue pixel heading */
+  --welcome-shadow: #16407a;
+  --wood:      #b07a43;
+  --wood-dark: #6f4a24;
+  --wood-lite: #d29a5f;
+  --canvas:    #efe6cf;   /* easel board face */
+  --canvas-ink:#2b2740;
+  --moon-pink: #ff9ec8;
+  --moon-pink-dark: #d96fa4;
+  --glow:      #6bb8ff;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: "VT323", "Courier New", monospace;
+  font-size: 22px;
+  line-height: 1.5;
+  color: #eaf1ff;
+  background: var(--space);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: none;
+}
+
+img { max-width: 100%; }
+
+/* --------------------------------------------------------------------
+   Star field  (fixed backdrop, built in site.js)
+   -------------------------------------------------------------------- */
+.stars {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* tiny background dots — the real pixels are box-shadows on one node */
+.stars i {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 2px;
+  background: transparent;
+}
+.stars i.sm { width: 1px; height: 1px; }
+.stars i.lg { width: 3px; height: 3px; }
+.stars i.xl { width: 4px; height: 4px; }
+.stars i.tw  { animation: twinkle 3.4s steps(3, jump-none) infinite; }
+.stars i.tw2 { animation: twinkle 5s   steps(3, jump-none) infinite; }
+.stars i.tw3 { animation: twinkle 2.2s steps(2, jump-none) infinite; }
+
+@keyframes twinkle {
+  0%, 100% { opacity: 1; }
+  45%      { opacity: 0.08; }
+  70%      { opacity: 0.5; }
+}
+
+/* a faint drifting sparkle layer that sits IN FRONT of the globe/content */
+.stars-front {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* plus-shaped mid stars */
+.star-plus {
+  position: absolute;
+  color: var(--star);
+  background: currentColor;
+  clip-path: polygon(
+    40% 0, 60% 0, 60% 40%, 100% 40%, 100% 60%, 60% 60%,
+    60% 100%, 40% 100%, 40% 60%, 0 60%, 0 40%, 40% 40%);
+  animation: pulse 3.2s ease-in-out infinite;
+}
+
+/* big 4-point sparkle: two crossed tapered rays + bright core */
+.sparkle {
+  position: absolute;
+  color: var(--star);
+  animation: sparkle 3.6s ease-in-out infinite;
+}
+.sparkle::before,
+.sparkle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  background: currentColor;
+}
+.sparkle::before { width: 16%;  height: 100%; clip-path: polygon(50% 0, 60% 50%, 50% 100%, 40% 50%); }
+.sparkle::after  { width: 100%; height: 16%;  clip-path: polygon(0 50%, 50% 40%, 100% 50%, 50% 60%); }
+.sparkle b {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 30%;
+  height: 30%;
+  background: #ffffff;
+}
+
+/* shooting star: bright head + tapering tail, occasional */
+.shooter {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: #eaf3ff;
+  box-shadow: 0 0 6px 1px rgba(180, 215, 255, 0.9);
+  opacity: 0;
+  animation: shoot 9s linear infinite;
+}
+.shooter::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  top: 0;
+  width: 66px;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(220, 235, 255, 0), #cfe2ff);
+}
+.shooter.b {
+  animation-duration: 13s;
+  animation-delay: 5s;
+  background: #e7d6ff;
+  box-shadow: 0 0 6px 1px rgba(206, 180, 255, 0.9);
+}
+.shooter.b::after { background: linear-gradient(90deg, rgba(231, 214, 255, 0), #d9c4ff); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.7); }
+  50%      { opacity: 1;    transform: scale(1); }
+}
+@keyframes sparkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.6) rotate(0deg); }
+  50%      { opacity: 1;    transform: scale(1)   rotate(45deg); }
+}
+@keyframes shoot {
+  0%     { transform: translate(0, 0) rotate(28deg); opacity: 0; }
+  4%     { opacity: 1; }
+  14%    { opacity: 1; }
+  22%    { transform: translate(320px, 170px) rotate(28deg); opacity: 0; }
+  100%   { transform: translate(320px, 170px) rotate(28deg); opacity: 0; }
+}
+
+/* --------------------------------------------------------------------
+   Spinning pixel Earth
+   -------------------------------------------------------------------- */
+.globe {
+  position: relative;
+  width: min(96vmin, 820px);
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;   /* keeps the soft wash below circular, not a square glow */
+  /* the blue halo is drawn in-canvas now (glow past the disc edge);
+     this just softens its outer fade a touch further */
+  box-shadow: 0 0 60px 14px rgba(52, 110, 235, 0.16);
+}
+/* the sphere itself is rendered per-pixel to this canvas by site.js.
+   The in-canvas glow doesn't fully reach zero at the canvas edge, which
+   left a faint square silhouette — this mask fades the canvas itself to
+   fully transparent well inside its own edge so no boundary shows. */
+.globe__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  -webkit-mask-image: radial-gradient(circle farthest-side at 50% 50%, #000 0%, #000 78%, transparent 100%);
+  mask-image: radial-gradient(circle farthest-side at 50% 50%, #000 0%, #000 78%, transparent 100%);
+}
+/* faint CRT scanlines over the sphere — same fade so they don't outline a box */
+.globe::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg, rgba(0, 0, 0, 0.20) 0 1px, rgba(0, 0, 0, 0) 1px 3px);
+  mix-blend-mode: multiply;
+  -webkit-mask-image: radial-gradient(circle farthest-side at 50% 50%, #000 0%, #000 78%, transparent 100%);
+  mask-image: radial-gradient(circle farthest-side at 50% 50%, #000 0%, #000 78%, transparent 100%);
+}
+
+/* Home: Earth is a fixed layer that fades in on scroll (see site.js) */
+.globe-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity, transform;
+}
+.globe-layer .globe {
+  width: min(112vmin, 960px);
+  transform: scale(0.9);
+  transition: transform 0.2s linear;
+}
+
+/* --------------------------------------------------------------------
+   Page shell
+   -------------------------------------------------------------------- */
+.page {
+  position: relative;
+  z-index: 2;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 20px 120px;
+}
+
+.topbar {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 26px 20px 0;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.topbar a {
+  color: var(--glow);
+  text-decoration: none;
+  text-shadow: 0 0 8px rgba(107, 184, 255, 0.6);
+}
+.topbar a:hover { color: #fff; }
+.topbar .spark { opacity: 0.8; }
+.topbar-links {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  text-shadow: none;
+  filter: drop-shadow(0 0 8px rgba(107, 184, 255, 0.35));
+  transition: filter 0.2s ease;
+}
+.brand-mark img {
+  display: block;
+  height: 200px;
+  width: auto;
+}
+.brand-mark:hover { filter: drop-shadow(0 0 14px rgba(107, 184, 255, 0.7)); }
+
+/* --------------------------------------------------------------------
+   Hero + WELCOME heading (the only text NOT on an easel)
+   -------------------------------------------------------------------- */
+.hero {
+  min-height: 100svh;
+  /* the topbar sits in normal flow above this and pushes it down; pull the
+     box back up by the topbar's own height so centering below is relative
+     to the true viewport, not just the space left under the topbar */
+  margin-top: -226px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 28px;
+  position: relative;
+  z-index: 3;
+}
+
+/* ---- GPS / retro-TV bezel the WELCOME line boots up inside ---- */
+.gps-frame {
+  position: relative;
+  width: min(640px, 88vw);
+  padding: 40px 32px 34px;
+  background: #050a1c;
+  /* stepped pixel bezel: two solid rings, no blur, so the edge stays hard */
+  box-shadow:
+    0 0 0 3px #16224a,
+    0 0 0 6px #0a1230,
+    0 0 50px rgba(80, 150, 255, 0.16),
+    inset 0 0 44px rgba(0, 0, 0, 0.6);
+}
+.gps-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg, rgba(0, 0, 0, 0.18) 0 1px, rgba(0, 0, 0, 0) 1px 3px);
+  mix-blend-mode: multiply;
+}
+.gps-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+.gps-corner.tl { top: -6px;    left: -6px;  border-top: 3px solid var(--glow);    border-left: 3px solid var(--glow); }
+.gps-corner.tr { top: -6px;    right: -6px; border-top: 3px solid var(--glow);    border-right: 3px solid var(--glow); }
+.gps-corner.bl { bottom: -6px; left: -6px;  border-bottom: 3px solid var(--glow); border-left: 3px solid var(--glow); }
+.gps-corner.br { bottom: -6px; right: -6px; border-bottom: 3px solid var(--glow); border-right: 3px solid var(--glow); }
+
+.gps-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: "VT323", monospace;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6bb8ff;
+  opacity: 0.85;
+  margin-bottom: 22px;
+  min-height: 1em;
+}
+.gps-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  background: #74ffd4;
+  box-shadow: 0 0 6px rgba(116, 255, 212, 0.9);
+  animation: gps-blink 1.2s steps(2, jump-none) infinite;
+}
+.gps-coords {
+  color: #3f5a8c;
+  margin-left: 4px;
+}
+@keyframes gps-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.2; }
+}
+
+/* ---- GPS page-title banner: the ONLY text on document pages that isn't
+   on an easel, same rule as "welcome to DLM Studios" on the homepage.
+   Everything else on these pages — every clause, every list — lives on
+   a wooden easel like the rest of the site. ---- */
+.doc-frame {
+  width: min(600px, 90vw);
+  margin: 0 auto 64px;
+  padding: 34px 32px 30px;
+  text-align: center;
+}
+.doc-frame .gps-status { justify-content: center; }
+.doc-title {
+  font-family: "Press Start 2P", "VT323", monospace;
+  font-size: clamp(17px, 3vw, 25px);
+  line-height: 1.5;
+  color: var(--welcome);
+  letter-spacing: 0.02em;
+  margin: 10px 0 8px;
+  text-shadow: 0.03em 0.03em 0 var(--welcome-shadow), 0.06em 0.06em 0 #0f2c55;
+}
+.doc-meta {
+  font-family: "VT323", monospace;
+  font-size: 15px;
+  color: #6d7b9c;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* 404 */
+.lost-frame .doc-title { color: #ff9ec8; text-shadow: 0.03em 0.03em 0 #7a1f4a, 0.06em 0.06em 0 #4a1230; }
+
+/* bulleted clauses inside an easel board (distinct from the plain .rows list) */
+.easel__board .bullets { list-style: none; margin: 8px 0 4px; padding: 0; }
+.easel__board .bullets li {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 9px;
+}
+.easel__board .bullets li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.6em;
+  width: 6px;
+  height: 6px;
+  background: var(--wood-dark);
+}
+
+.welcome {
+  font-family: "Press Start 2P", "VT323", monospace;
+  font-size: clamp(18px, 5.4vw, 46px);
+  line-height: 1.5;
+  color: var(--welcome);
+  letter-spacing: 0.02em;
+  max-width: 14ch;
+  /* stacked shadows = chunky 3D extrusion (em units scale with font-size) */
+  text-shadow:
+    0.04em 0.04em 0 var(--welcome-shadow),
+    0.08em 0.08em 0 var(--welcome-shadow),
+    0.12em 0.12em 0 #0f2c55,
+    0.16em 0.16em 0 #0f2c55,
+    0.20em 0.20em 0 #0b2245,
+    0.24em 0.24em 0.18em rgba(0, 0, 0, 0.55),
+    0 0 0.5em rgba(120, 190, 255, 0.45);
+  opacity: 0;   /* powers on once site.js finishes the boot sequence (.is-on) */
+}
+.welcome.is-on {
+  animation:
+    gps-poweron 0.6s steps(8, jump-none) forwards,
+    welglow 4.5s ease-in-out 0.6s infinite;
+}
+@keyframes gps-poweron {
+  0%   { opacity: 0;   transform: scaleY(0.85); filter: brightness(2.6); }
+  35%  { opacity: 0.25; }
+  50%  { opacity: 1;   filter: brightness(1.7); }
+  65%  { opacity: 0.35; }
+  100% { opacity: 1;   transform: scaleY(1); filter: brightness(1); }
+}
+@keyframes welglow {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(130, 195, 255, 0.22)); }
+  50%      { filter: drop-shadow(0 0 15px rgba(165, 220, 255, 0.65)); }
+}
+
+.scroll-cue {
+  font-size: 26px;
+  color: var(--glow);
+  animation: bob 1.8s steps(3, jump-none) infinite;
+  text-shadow: 0 0 10px rgba(107, 184, 255, 0.7);
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(8px); }
+}
+
+/* --------------------------------------------------------------------
+   Easels  (every text block)
+   -------------------------------------------------------------------- */
+.easel {
+  position: relative;
+  width: min(560px, 92vw);
+  margin: 0 auto 132px;
+  padding-bottom: 118px;          /* leg room */
+}
+.easel:last-child { margin-bottom: 0; }
+
+/* legs + crossbar sit behind the board */
+.easel__stand {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+.easel__stand .leg {
+  position: absolute;
+  bottom: 0;
+  width: 13px;
+  background: linear-gradient(90deg, var(--wood-lite), var(--wood-dark));
+  box-shadow: inset -3px 0 0 rgba(0, 0, 0, 0.28);
+}
+.easel__stand .leg--left {
+  left: 17%;
+  height: 96%;
+  transform-origin: bottom center;
+  transform: rotate(10deg);
+}
+.easel__stand .leg--right {
+  right: 17%;
+  height: 96%;
+  transform-origin: bottom center;
+  transform: rotate(-10deg);
+}
+.easel__stand .leg--back {
+  left: 50%;
+  height: 88%;
+  transform: translateX(-50%) rotate(-4deg);
+  background: var(--wood-dark);
+  filter: brightness(0.8);
+}
+.easel__stand .bar {
+  position: absolute;
+  left: 12%; right: 12%;
+  bottom: 40px;
+  height: 11px;
+  background: linear-gradient(180deg, var(--wood-lite), var(--wood-dark));
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* the board / canvas */
+.easel__board {
+  position: relative;
+  z-index: 2;
+  background: var(--canvas);
+  color: var(--canvas-ink);
+  border: 7px solid var(--wood);
+  padding: 24px 26px 26px;
+  text-align: left;
+  font-family: "Space Mono", "Courier New", monospace;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.72;
+  letter-spacing: 0;
+  box-shadow:
+    0 0 0 4px var(--wood-dark),
+    inset 0 0 0 4px #ddd0ac,
+    10px 12px 0 rgba(0, 0, 0, 0.38);
+}
+/* little tray/ledge the canvas rests on */
+.easel__board::after {
+  content: "";
+  position: absolute;
+  left: -6%;
+  right: -6%;
+  bottom: -26px;
+  height: 14px;
+  background: linear-gradient(180deg, var(--wood-lite), var(--wood));
+  box-shadow: 0 5px 0 var(--wood-dark);
+}
+
+.easel__board h2 {
+  font-family: "Press Start 2P", "VT323", monospace;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  line-height: 1.7;
+  text-transform: uppercase;
+  color: #7a3b16;
+  margin-bottom: 14px;
+  padding-bottom: 9px;
+  border-bottom: 3px solid rgba(122, 59, 22, 0.35);
+}
+/* icon + heading row (used when an easel shows a product icon, e.g. MyOlive) */
+.easel__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding-bottom: 9px;
+  border-bottom: 3px solid rgba(122, 59, 22, 0.35);
+}
+.easel__head h2 {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.easel__icon {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(122, 59, 22, 0.3);
+}
+.easel__board p { margin-bottom: 12px; }
+.easel__board p:last-child { margin-bottom: 0; }
+.easel__board strong { font-weight: 600; color: #7a3b16; }
+.easel__board a {
+  color: #1c4fa0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.easel__board a:hover { color: #b0407a; }
+.easel__board .rows { list-style: none; }
+.easel__board .rows li { margin-bottom: 4px; }
+
+/* fade-up reveal (JS toggles .is-in) */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* --------------------------------------------------------------------
+   Products page — the solar system
+   -------------------------------------------------------------------- */
+.system {
+  position: relative;
+  width: min(86vmin, 620px);
+  aspect-ratio: 1 / 1;
+  margin: 40px auto 72px;
+  z-index: 2;
+}
+.system .globe {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 54%;
+  transform: translate(-50%, -50%);
+}
+
+/* retro "We are here" orbital swoosh — a bright partial ring that sweeps round */
+.orbit {
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: #78ffd4;
+  border-right-color: #78ffd4;
+  box-shadow:
+    0 0 24px rgba(120, 255, 212, 0.5),
+    inset 0 0 26px rgba(120, 255, 212, 0.25);
+  animation: orbit-spin 30s linear infinite;
+}
+.orbit--myolive { inset: 1%; animation-duration: 24s; }
+
+/* .moon-pos rides the orbit; .moon counter-rotates so art + label stay upright */
+.moon-pos {
+  position: absolute;
+  left: 50%;
+  top: -10%;
+  width: 22%;
+  aspect-ratio: 1 / 1;
+  transform: translateX(-50%);
+}
+/* comet trail streaming off the orbiting body */
+.moon-pos::before {
+  content: "";
+  position: absolute;
+  right: 52%;
+  top: 50%;
+  width: 120px;
+  height: 9px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, rgba(120, 255, 212, 0) 0%, rgba(120, 255, 212, 0.75) 100%);
+  filter: blur(2.5px);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.orbit--myolive .moon { animation-duration: 24s; }  /* must equal .orbit--myolive so the label stays level */
+
+.moon {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  text-decoration: none;
+  image-rendering: pixelated;
+  animation: orbit-spin 30s linear infinite reverse;
+}
+.moon__body {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;   /* keeps the soft wash below circular, not a square glow */
+  /* rose halo is drawn in-canvas now; this just softens its outer fade */
+  box-shadow: 0 0 26px 6px rgba(255, 120, 180, 0.18);
+}
+/* the moon sphere is rendered per-pixel to this canvas by site.js. Same
+   edge-fade mask as the globe so no square boundary shows around the disc. */
+.moon__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  -webkit-mask-image: radial-gradient(circle farthest-side at 50% 50%, #000 0%, #000 78%, transparent 100%);
+  mask-image: radial-gradient(circle farthest-side at 50% 50%, #000 0%, #000 78%, transparent 100%);
+}
+/* faint CRT scanlines to match the globe */
+.moon__body::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg, rgba(0, 0, 0, 0.20) 0 1px, rgba(0, 0, 0, 0) 1px 3px);
+  mix-blend-mode: multiply;
+  -webkit-mask-image: radial-gradient(circle farthest-side at 50% 50%, #000 0%, #000 78%, transparent 100%);
+  mask-image: radial-gradient(circle farthest-side at 50% 50%, #000 0%, #000 78%, transparent 100%);
+}
+
+.moon__label {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 12px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: "Press Start 2P", "VT323", monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  text-shadow: 2px 2px 0 #06231b, 0 0 10px rgba(120, 255, 212, 0.75);
+}
+.moon__go {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 30px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 14px;
+  color: #78ffd4;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.moon:hover .moon__body,
+.moon:focus-visible .moon__body {
+  box-shadow: 0 0 40px 10px rgba(255, 120, 180, 0.4);
+}
+.moon:hover .moon__go,
+.moon:focus-visible .moon__go { opacity: 1; }
+
+@keyframes orbit-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------------------
+   Footer easel content helpers
+   -------------------------------------------------------------------- */
+.legal {
+  font-size: 18px;
+  color: #6a5f48;
+  letter-spacing: 0.02em;
+}
+
+/* --------------------------------------------------------------------
+   Motion / accessibility
+   -------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .orbit,
+  .moon,
+  .stars i,
+  .star-plus,
+  .sparkle,
+  .shooter,
+  .welcome,
+  .gps-dot,
+  .scroll-cue { animation: none !important; }
+  .shooter { display: none; }
+  .sparkle { opacity: 0.85; }
+  .star-plus { opacity: 0.8; }
+  .globe-layer { opacity: 0.92 !important; }
+  .globe-layer .globe { transform: none !important; }
+  .reveal { opacity: 1 !important; transform: none !important; transition: none; }
+  .welcome { opacity: 1 !important; transform: none !important; }
+}
+
+@media (max-width: 620px) {
+  body { font-size: 20px; }
+  .easel { padding-bottom: 96px; margin-bottom: 104px; }
+  .easel__board { padding: 20px 20px 22px; font-size: 14px; }
+  .easel__board h2 { font-size: 10px; letter-spacing: 0.02em; }
+  .easel__icon { width: 36px; height: 36px; }
+  .topbar { letter-spacing: 0.08em; font-size: 13px; flex-wrap: wrap; row-gap: 10px; }
+  .topbar-links { gap: 14px; }
+  .brand-mark img { height: 110px; }
+  .hero { margin-top: -136px; }
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
