@@ -501,9 +501,6 @@ img { max-width: 100%; }
 .easel--legal { width: min(320px, 70vw); }
 .easel--legal .easel__board { padding: 16px 18px 18px; }
 
-/* homepage cards float over the Earth — go smaller still so it shows through */
-.easel.easel--home { width: min(380px, 80vw); }
-
 /* legs + crossbar sit behind the board */
 .easel__stand {
   position: absolute;
